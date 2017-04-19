@@ -7,12 +7,18 @@ class MQTTBroker:
         self.client.on_connect = self.__onMqttConnect
         self.client.on_message = self.__onMqttMessage
         self.client.connect(ip, port, 60)
+        self.ip = ip
+        self.port = port
 
     def __onMqttMessage(self, client, userdata, msg):
-        self.handlers[msg.topic](msg.payload)
+        try:
+            #print('topic:%s msg:%s' % (msg.topic, msg.payload))
+            self.handlers[msg.topic](msg.payload)
+        except Exception,e:
+            print Exception,":",e
 
     def __onMqttConnect(self, client, userdata, flags, rc):
-        print('Connected to MQTT broker with error code:' + str(rc))
+        print('Connected to MQTT broker(%s) with error code:%s' % (self.ip, str(rc)))
 
     def pubMessage(self, topic, msg):
         self.client.publish(topic, msg)
@@ -25,6 +31,6 @@ class MQTTBroker:
         self.client.unsubscribe(topic)
         self.handlers.pop(topic)
 
-    def loopForever(self):
-        self.client.loop_forever()
+    def loopStart(self):
+        self.client.loop_start()
 
