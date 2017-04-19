@@ -115,5 +115,5 @@ class WifiGateway:
         print("Get mac delete req: card_id(%d) mac(%s)" % (msg['card_id'], msg['mac']))
 
 
-gw = WifiGateway('localhost', 1883)
+gw = WifiGateway('10.193.20.97', 1883)
 gw.broker.loopForever()
