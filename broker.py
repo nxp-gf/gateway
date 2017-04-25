@@ -1,19 +1,21 @@
 import paho.mqtt.client as mqtt
 
 class MQTTBroker:
-    def __init__(self, ip='localhost', port=1883):
+    def __init__(self, ip='localhost', port=1883, usr=None, passwd=None):
         self.handlers = {}
         self.client = mqtt.Client()
         self.client.on_connect = self.__onMqttConnect
         self.client.on_message = self.__onMqttMessage
+        if usr is not None:
+            self.client.username_pw_set(usr, passwd)
         self.client.connect(ip, port, 60)
         self.ip = ip
         self.port = port
 
     def __onMqttMessage(self, client, userdata, msg):
         try:
-            #print('topic:%s msg:%s' % (msg.topic, msg.payload))
-            self.handlers[msg.topic](msg.payload)
+            print('topic:%s msg:%s' % (msg.topic, msg.payload))
+            self.handlers[msg.topic](msg.topic, msg.payload)
         except Exception,e:
             print Exception,":",e
 

@@ -4,155 +4,200 @@ import threading
 import time
 import commands
 
+svrip = 'localhost'
+svrport = 1883
+svruser = None 
+svrpasswd = None
+gwId = 1
 
-TOPIC_GW2SVR_GET_REG_REQ     = "tgt/server/evt/get_reg_req"
-TOPIC_GW2SVR_REG_GW_REQ      = "tgt/server/evt/gw_reg_req"
-TOPIC_GW2SVR_INIT_GW_RESP    = "tgt/server/evt/init_gw_resp"
-TOPIC_GW2SVR_DEL_GW_RESP     = "tgt/server/evt/delete_gw_resp"
-TOPIC_GW2SVR_HEARTBEAT_REQ   = "tgt/server/evt/heartbeat_req"
-TOPIC_GW2SVR_CARD_ACV_RESP   = "tgt/server/evt/card_activate_resp"
-TOPIC_GW2SVR_CARD_DETECT_REQ = "tgt/server/evt/card_detect_req"
-TOPIC_GW2SVR_MAC_REG_RESP    = "tgt/server/evt/app_mac_resp"
+TOPIC_GW2SVR_HEARTBEAT       = "tgt/server/evt/gw_heartbeat"
+TOPIC_GW2SVR_GW_REG_REQ      = "tgt/server/evt/gw_reg_req"
+TOPIC_GW2SVR_GW_WORK_RESP    = "tgt/server/evt/gw_work_resp"
+TOPIC_GW2SVR_GW_STOP_RESP    = "tgt/server/evt/gw_stop_resp"
+TOPIC_GW2SVR_GW_SYNC_RESP    = "tgt/server/evt/gw_sync_resp"
+TOPIC_GW2SVR_MAC_ADD_RESP    = "tgt/server/evt/mac_add_resp"
 TOPIC_GW2SVR_MAC_DEL_RESP    = "tgt/server/evt/mac_delete_resp"
+TOPIC_GW2SVR_CARD_DETECT     = "tgt/server/evt/card_detect_req"
+TOPIC_GW2SVR_CARD_ACV        = "tgt/server/evt/card_detect_req_sync_mode"
 
-TOPIC_SVR2GW_GET_REG_RESP    = "tgt/1/evt/get_reg_resp"
-TOPIC_SVR2GW_REG_GW_RESP     = "tgt/1/evt/gw_reg_resp"
-TOPIC_SVR2GW_INIT_GW_REQ     = "tgt/1/evt/init_gw_req"
-TOPIC_SVR2GW_DEL_GW_REQ      = "tgt/1/evt/delete_gw_req"
-TOPIC_SVR2GW_HEARTBEAT_RESP  = "tgt/1/evt/heartbeat_resp"
-TOPIC_SVR2GW_CARD_ACV_REQ    = "tgt/1/evt/card_activate_req"
-TOPIC_SVR2GW_CARD_DETECT_RESP= "tgt/1/evt/card_detect_resp"
-TOPIC_SVR2GW_MAC_REG_REQ     = "tgt/1/evt/app_mac_req"
-TOPIC_SVR2GW_MAC_DEL_REQ     = "tgt/1/evt/mac_delete_req"
+TOPIC_SVR2GW_GW_REG_RESP     = "tgt/"+str(gwId)+"/evt/gw_reg_resp"
+TOPIC_SVR2GW_GW_WORK_REQ     = "tgt/"+str(gwId)+"/evt/gw_work_req"
+TOPIC_SVR2GW_GW_STOP_REQ     = "tgt/"+str(gwId)+"/evt/gw_stop_req"
+TOPIC_SVR2GW_GW_SYNC_REQ     = "tgt/"+str(gwId)+"/evt/gw_sync_req"
+TOPIC_SVR2GW_MAC_ADD_REQ     = "tgt/"+str(gwId)+"/evt/mac_add_req"
+TOPIC_SVR2GW_MAC_DEL_REQ     = "tgt/"+str(gwId)+"/evt/mac_delete_req"
+TOPIC_SVR2GW_CARD_DETECT_RESP= "tgt/"+str(gwId)+"/evt/card_detect_resp"
 
-TOPIC_GW2LORA_CARD_ACV       = "tgt/lora/card_activate"
-TOPIC_LORA2GW_CARD_DETECT    = "tgt/gw/card_detect"
-TOPIC_LORA2GW_CARD_ACV_RESP  = "tgt/gw/card_activate_resp"
-
-class WifiGateway:
-    def __init__(self, svrip, svrport):
-        self.gwId = 1
-        self.wifiEnabled = 1
-        self.DLNAEnabled = 1
-        self.wifiBandwidth = 1000
-        self.__loraBroker = MQTTBroker('localhost', 1883)
-        self.__loraBroker.addHandler(TOPIC_LORA2GW_CARD_DETECT, self.lora_card_detect)
-        self.__loraBroker.addHandler(TOPIC_LORA2GW_CARD_ACV_RESP, self.lora_card_activate_resp)
-        self.__loraBroker.loopStart()
-
-        self.__svrBroker = MQTTBroker(svrip, svrport)
-        self.__svrBroker.addHandler(TOPIC_SVR2GW_GET_REG_RESP, self.svr_get_registration_info_resp)
-        self.__svrBroker.addHandler(TOPIC_SVR2GW_REG_GW_RESP, self.svr_register_gateway_resp)
-        self.__svrBroker.addHandler(TOPIC_SVR2GW_INIT_GW_REQ, self.svr_init_gateway_req)
-        self.__svrBroker.addHandler(TOPIC_SVR2GW_DEL_GW_REQ, self.svr_delete_gateway_req)
-        self.__svrBroker.addHandler(TOPIC_SVR2GW_HEARTBEAT_RESP, self.svr_gateway_heartbeat_resp)
-        self.__svrBroker.addHandler(TOPIC_SVR2GW_CARD_ACV_REQ, self.svr_card_activate_req)
-        self.__svrBroker.addHandler(TOPIC_SVR2GW_CARD_DETECT_RESP, self.svr_card_detect_resp)
-        self.__svrBroker.addHandler(TOPIC_SVR2GW_MAC_REG_REQ, self.svr_mac_register_req)
-        self.__svrBroker.addHandler(TOPIC_SVR2GW_MAC_DEL_REQ, self.svr_mac_delete_req)
-        self.__svrBroker.loopStart()
-        self.heartBeatTimer = threading.Timer(10, self.gateway_heartbeat_req, '')
-        self.heartBeatTimer.start()
-        self.seqNumber = 0
-        (status, err_msg) = commands.getstatusoutput('gateway.sh init')
-        self.register_gateway_req()
-
-    def get_registration_info_req(self):
-        payload = {'gw_id':self.gwId}
-        self.__svrBroker.pubMessage(TOPIC_GW2SVR_GET_REG_REQ, json.dumps(payload))
-
-    def register_gateway_req(self):
-        payload = {'gw_id':self.gwId, 'wifi':self.wifiEnabled, 'wifi_bandwidth':self.wifiBandwidth, 'dlna':self.DLNAEnabled}
-        self.__svrBroker.pubMessage(TOPIC_GW2SVR_GET_REG_REQ, json.dumps(payload))
-
-    def init_gateway_resp(self, status, msg):
-        payload = {'gw_id':self.gwId, 'status':status, 'err_msg':msg}
-        self.__svrBroker.pubMessage(TOPIC_GW2SVR_INIT_GW_RESP, json.dumps(payload))
-
-    def delete_gateway_resp(self, status, msg):
-        payload = {'gw_id':self.gwId, 'status':status, 'err_msg':msg}
-        self.__svrBroker.pubMessage(TOPIC_GW2SVR_DEL_GW_RESP, json.dumps(payload))
-
-    def gateway_heartbeat_req(self):
-        self.seqNumber += 1
-        payload = {'gw_id':self.gwId, 'seq_number':self.seqNumber}
-        self.__svrBroker.pubMessage(TOPIC_GW2SVR_HEARTBEAT_REQ, json.dumps(payload))
-        self.heartBeatTimer = threading.Timer(10, self.gateway_heartbeat_req, '')
-        self.heartBeatTimer.start()
-
-    def card_activate_resp(self, card, status, msg):
-        payload = {'gw_id':self.gwId, 'card_id':card, 'status':status, 'err_msg':msg}
-        self.__svrBroker.pubMessage(TOPIC_GW2SVR_CARD_ACV_RESP, json.dumps(payload))
-
-    def card_detect_req(self, card, signal):
-        payload = {'gw_id':self.gwId, 'card_id':card, 'signal_intensity':signal}
-        self.__svrBroker.pubMessage(TOPIC_GW2SVR_CARD_DETECT_REQ, json.dumps(payload))
-
-    def mac_register_resp(self, card, status, msg):
-        payload = {'gw_id':self.gwId, 'card_id':card, 'status':status, 'err_msg':msg}
-        self.__svrBroker.pubMessage(TOPIC_GW2SVR_MAC_REG_RESP, json.dumps(payload))
-
-    def mac_delete_resp(self, card, mac, status, msg):
-        payload = {'gw_id':self.gwId, 'card_id':card, 'mac':mac, 'status':status, 'err_msg':msg}
-        self.__svrBroker.pubMessage(TOPIC_GW2SVR_MAC_DEL_RESP, json.dumps(payload))
-
-    def lora_card_detect(self, payload):
-        msg = json.loads(payload)
-        print("Get lora card detect:card(%d) signal(%d)" % (msg['card_id'], msg['signal']))
-        self.card_detect_req(msg['card_id'], msg['signal'])
-
-    def lora_card_activate_resp(self, payload):
-        msg = json.loads(payload)
-        print("Get lora activate resp:card(%d) status(%d) msg(%s)" % (msg['card_id'], msg['status'], msg['err_msg']))
-        self.card_activate_resp(msg['card_id'], msg['status'], msg['err_msg'])
-
-    def svr_get_registration_info_resp(self, payload):
-        msg = json.loads(payload)
-        print("Get registration info resp:status(%d) err_msg(%s)" % (msg['status'], msg['err_msg']))
-
-    def svr_register_gateway_resp(self, payload):
-        msg = json.loads(payload)
-        print("Get register gateway resp:status(%d) err_msg(%s)" % (msg['status'], msg['err_msg']))
-
-    def svr_init_gateway_req(self, payload):
-        print("Get init gateway req")
-        (status, err_msg) = commands.getstatusoutput('gateway.sh init')
-        self.heartBeatTimer = threading.Timer(10, self.gateway_heartbeat_req, '')
-        self.heartBeatTimer.start()
-        self.init_gateway_resp(status, err_msg)
-
-    def svr_delete_gateway_req(self, payload):
-        print("Get delete gateway req")
-        self.heartBeatTimer.cancel()
-        (status, err_msg) = commands.getstatusoutput('gateway.sh stop')
-        self.delete_gateway_resp(status, err_msg)
-
-    def svr_gateway_heartbeat_resp(self, payload):
-        msg = json.loads(payload)
-        print("Get gateway heartbeat resp:seq_number(%d)" % (msg['seq_number']))
-
-    def svr_card_activate_req(self, payload):
-        msg = json.loads(payload)
-        print("Get card activate req:card_id(%d)" % (msg['card_id']))
-
-    def svr_card_detect_resp(self, payload):
-        msg = json.loads(payload)
-        print("Get card detect resp:card_id(%d) status(%d) err_msg(%s)" % (msg['card_id'],msg['status'], msg['err_msg']))
-
-    def svr_mac_register_req(self, payload):
-        msg = json.loads(payload)
-        print("Get mac register req:card_id(%d) mac(%s) membership_level(%d) wifi_bandwidth(%d)" % (msg['card_id'], msg['mac'], msg['membership_level'], msg['wifi_bandwidth']))
-        (status, err_msg) = commands.getstatusoutput('gateway.sh macadd %s %d' % (msg['mac'], msg['membership_level']))
-        self.mac_register_resp(msg['card_id'], status, err_msg)
-
-    def svr_mac_delete_req(self, payload):
-        msg = json.loads(payload)
-        print("Get mac delete req: card_id(%d) mac(%s)" % (msg['card_id'], msg['mac']))
-        (status, err_msg) = commands.getstatusoutput('gateway.sh macdel %s' % msg['mac'])
-        self.mac_delete_resp(msg['card_id'], msg['mac'], status, err_msg)
+TOPIC_GW2LORA_CMD_WORK       = "tgt/lora/evt/cmd_work"
+TOPIC_GW2LORA_CMD_STOP       = "tgt/lora/evt/cmd_stop"
+TOPIC_GW2LORA_CMD_SYNC       = "tgt/lora/evt/cmd_sync"
+TOPIC_LORA2GW_WORK_RESP      = "tgt/gw/evt/cmd_work_resp"
+TOPIC_LORA2GW_STOP_RESP      = "tgt/gw/evt/cmd_stop_resp"
+TOPIC_LORA2GW_SYNC_RESP      = "tgt/gw/evt/cmd_sync_resp"
+TOPIC_LORA2GW_HEARTBEAT      = "tgt/gw/evt/lora_heartbeat"
+TOPIC_LORA2GW_CARD_DET       = "tgt/gw/evt/card_detect_req_working_mode"
+TOPIC_LORA2GW_CARD_ACV       = "tgt/gw/evt/card_detect_resp_sync_mode"
 
 
-gw = WifiGateway('10.193.20.97', 1883)
+STATEINIT=0
+STATESTOP=1
+STATESYNC=2
+STATEWORK=3
+
+wifiCapbility = 1
+DLNACapbility = 1
+loraStatus = 0
+heartbeatTime = 3
+wifiBandwidth = 1000
+seqNumber = 0
+state = STATEINIT
+latitude = 0
+longitude = 0
+loraErrmsg = "lora heartbeat not available"
+gwErrmsgp = ""
+
+global heartBeatTimer
+global svrBroker
+global loraBroker
+
+def svr2gw_reg_resp(topic, msg):
+    state = STATESTOP
+    heartBeatTimer = threading.Timer(10, self.gateway_heartbeat_req, '')
+    heartBeatTimer.start()
+
+def gw2svr_register_req():
+    payload = {'gw_id':gwId, 'wifi':wifiCapbility, 'wifi_bandwidth':wifiBandwidth, 'dlna':DLNACapbility}
+    svrBroker.pubMessage(TOPIC_GW2SVR_GW_REG_REQ, json.dumps(payload))
+
+def gw2svr_work_resp(topic, msg):
+    if topic == TOPIC_LORA2GW_WORK_RESP:
+        payload = json.loads(msg)
+        status = payload['status']
+        err_msg = payload['err_msg']
+        if state == STATESTOP:
+            (ret, retmsg) = commands.getstatusoutput('gateway.sh init')
+            if ret != 0:
+                err_msg += retmsg
+                gwErrmsgp = retmsg
+    else:
+        status = 0
+        err_msg = ''
+    out = {'gw_id':gwId, 'status':status, 'err_msg':err_msg}
+    svrBroker.pubMessage(TOPIC_GW2SVR_GW_WORK_RESP, json.dumps(out))
+    state = STATEWORK
+
+def gw2svr_stop_resp(topic, msg):
+    if topic == TOPIC_LORA2GW_STOP_RESP:
+        payload = json.loads(msg)
+        status = payload['status']
+        err_msg = payload['err_msg']
+        (ret, retmsg) = commands.getstatusoutput('gateway.sh stop')
+        if ret != 0:
+            err_msg += retmsg
+            gwErrmsgp = retmsg
+    else:
+        status = 0
+        err_msg = ''
+    out = {'gw_id':gwId, 'status':status, 'err_msg':err_msg}
+    svrBroker.pubMessage(TOPIC_GW2SVR_GW_STOP_RESP, json.dumps(out))
+    state = STATESTOP
+
+def gw2svr_sync_resp(topic, msg):
+    if topic == TOPIC_LORA2GW_SYNC_RESP:
+        payload = json.loads(msg)
+        status = payload['status']
+        err_msg = payload['err_msg']
+        if state == STATESTOP:
+            (ret, retmsg) = commands.getstatusoutput('gateway.sh init')
+            if ret != 0:
+                err_msg += retmsg
+                gwErrmsgp = retmsg
+    else:
+        status = 0
+        err_msg = ''
+    out = {'gw_id':gwId, 'status':status, 'err_msg':err_msg}
+    svrBroker.pubMessage(TOPIC_GW2SVR_GW_SYNC_RESP, json.dumps(out))
+    state = STATERESP
+
+def gw2lora_cmd_req(topic, msg):
+    if topic == TOPIC_SVR2GW_GW_WORK_REQ:
+        rettopic = TOPIC_GW2LORA_CMD_WORK
+    elif topic == TOPIC_SVR2GW_GW_STOP_REQ:
+        rettopic = TOPIC_GW2LORA_CMD_STOP
+    else:
+        rettopic = TOPIC_GW2LORA_CMD_SYNC
+    loraBroker.pubMessage(rettopic, "")
+
+def lora_heartbeat(payload):
+    msg = json.loads(payload)
+    print("Get lora heartbeat:status(%d) err_msg(%s)" % (msg['status'], msg['err_msg']))
+    loraStatus = msg['status']
+    loraErrmsg = msg['err_msg']
+    longitude = msg['longitude']
+    latitude = msg['latitude']
+
+def gateway_heartbeat_req():
+    seqNumber += 1
+    errmsg = gwErrmsgp + loraErrmsg
+    payload = {'gw_id':gwId,'seq_number':seqNumber,'gw_status':state,'gw_status_msg':errmsg,'longitude':longitude,'latitude':latitude}
+    svrBroker.pubMessage(TOPIC_GW2SVR_HEARTBEAT, json.dumps(payload))
+    heartBeatTimer = threading.Timer(heartbeatTime, gateway_heartbeat_req, '')
+    heartBeatTimer.start()
+
+def gw2svr_add_mac_resp(topic, payload):
+    msg = json.loads(payload)
+    print("Get mac register req:card_id(%d) mac(%s) membership_level(%d) wifi_bandwidth(%d)" % (msg['card_id'], msg['mac'], msg['membership_level'], msg['wifi_bandwidth']))
+    (status, err_msg) = commands.getstatusoutput('gateway.sh macadd %s %d' % (msg['mac'], msg['membership_level']))
+    payload = {'gw_id':gwId, 'card_id':msg['card_id'], 'mac':msg['mac'], 'status':status, 'err_msg':err_msg}
+    svrBroker.pubMessage(TOPIC_GW2SVR_MAC_ADD_RESP, json.dumps(payload))
+
+def gw2svr_del_mac_resp(topic, payload):
+    msg = json.loads(payload)
+    print("Get mac delete req: card_id(%d) mac(%s)" % (msg['card_id'], msg['mac']))
+    (status, err_msg) = commands.getstatusoutput('gateway.sh macdel %s' % msg['mac'])
+    payload = {'gw_id':gwId, 'card_id':msg['card_id'], 'mac':msg['mac'], 'status':status, 'err_msg':msg}
+    svrBroker.pubMessage(TOPIC_GW2SVR_MAC_DEL_RESP, json.dumps(payload))
+
+def gw2svr_card_detect(topic, payload):
+    if topic == TOPIC_LORA2GW_CARD_DET:
+        rettopic = TOPIC_GW2SVR_CARD_DETECT
+    else:
+        rettopic = TOPIC_GW2SVR_CARD_ACV
+    svrBroker.pubMessage(rettopic, '')
+
+stateMachine = {TOPIC_SVR2GW_GW_REG_RESP:[svr2gw_reg_resp, None,               None,               None],
+                TOPIC_SVR2GW_GW_WORK_REQ:[None,            gw2lora_cmd_req,    gw2lora_cmd_req,    gw2svr_work_resp],
+                TOPIC_SVR2GW_GW_STOP_REQ:[None,            gw2svr_stop_resp,   gw2lora_cmd_req,    gw2lora_cmd_req],
+                TOPIC_SVR2GW_GW_SYNC_REQ:[None,            gw2lora_cmd_req,    gw2svr_sync_resp,   gw2lora_cmd_req],
+                TOPIC_SVR2GW_MAC_ADD_REQ:[None,            None,               None,               gw2svr_add_mac_resp],
+                TOPIC_SVR2GW_MAC_DEL_REQ:[None,            None,               None,               gw2svr_del_mac_resp],
+                TOPIC_LORA2GW_WORK_RESP :[None,            gw2svr_work_resp,   gw2svr_sync_resp,   None],
+                TOPIC_LORA2GW_STOP_RESP :[None,            None,               gw2svr_stop_resp,   gw2svr_stop_resp],
+                TOPIC_LORA2GW_SYNC_RESP :[None,            gw2svr_sync_resp,   None,               None],
+                TOPIC_LORA2GW_CARD_DET  :[None,            gw2svr_card_detect, gw2svr_card_detect, gw2svr_card_detect],
+                TOPIC_LORA2GW_CARD_ACV  :[None,            gw2svr_card_detect, gw2svr_card_detect, gw2svr_card_detect]}
+
+def state_machine_entrance(topic, msg):
+    stateMachine[topic][state](topic,msg)
+
+loraBroker = MQTTBroker('localhost', 1883)
+loraBroker.addHandler(TOPIC_LORA2GW_CARD_DET,  state_machine_entrance)
+loraBroker.addHandler(TOPIC_LORA2GW_CARD_ACV,  state_machine_entrance)
+loraBroker.addHandler(TOPIC_LORA2GW_WORK_RESP, state_machine_entrance)
+loraBroker.addHandler(TOPIC_LORA2GW_STOP_RESP, state_machine_entrance)
+loraBroker.addHandler(TOPIC_LORA2GW_SYNC_RESP, state_machine_entrance)
+loraBroker.addHandler(TOPIC_LORA2GW_HEARTBEAT, lora_heartbeat)
+loraBroker.loopStart()
+
+svrBroker = MQTTBroker(svrip, svrport, svruser, svrpasswd)
+svrBroker.addHandler(TOPIC_SVR2GW_GW_REG_RESP, state_machine_entrance)
+svrBroker.addHandler(TOPIC_SVR2GW_GW_WORK_REQ, state_machine_entrance)
+svrBroker.addHandler(TOPIC_SVR2GW_GW_STOP_REQ, state_machine_entrance)
+svrBroker.addHandler(TOPIC_SVR2GW_GW_SYNC_REQ, state_machine_entrance)
+svrBroker.addHandler(TOPIC_SVR2GW_MAC_ADD_REQ, state_machine_entrance)
+svrBroker.addHandler(TOPIC_SVR2GW_MAC_DEL_REQ, state_machine_entrance)
+svrBroker.loopStart()
+gw2svr_register_req()
 
 while 1:
     time.sleep(10)
