@@ -62,7 +62,7 @@ global loraBroker
 
 def svr2gw_reg_resp(topic, msg):
     state = STATESTOP
-    heartBeatTimer = threading.Timer(10, self.gateway_heartbeat_req, '')
+    heartBeatTimer = threading.Timer(10, gateway_heartbeat_req, (0,))
     heartBeatTimer.start()
 
 def gw2svr_register_req():
@@ -136,12 +136,12 @@ def lora_heartbeat(payload):
     longitude = msg['longitude']
     latitude = msg['latitude']
 
-def gateway_heartbeat_req():
+def gateway_heartbeat_req(seqNumber):
     seqNumber += 1
     errmsg = gwErrmsgp + loraErrmsg
     payload = {'gw_id':gwId,'seq_number':seqNumber,'gw_status':state,'gw_status_msg':errmsg,'longitude':longitude,'latitude':latitude}
     svrBroker.pubMessage(TOPIC_GW2SVR_HEARTBEAT, json.dumps(payload))
-    heartBeatTimer = threading.Timer(heartbeatTime, gateway_heartbeat_req, '')
+    heartBeatTimer = threading.Timer(heartbeatTime, gateway_heartbeat_req, (seqNumber,))
     heartBeatTimer.start()
 
 def gw2svr_add_mac_resp(topic, payload):
@@ -178,7 +178,8 @@ stateMachine = {TOPIC_SVR2GW_GW_REG_RESP:[svr2gw_reg_resp, None,               N
                 TOPIC_LORA2GW_CARD_ACV  :[None,            gw2svr_card_detect, gw2svr_card_detect, gw2svr_card_detect]}
 
 def state_machine_entrance(topic, msg):
-    stateMachine[topic][state](topic,msg)
+    if stateMachine[topic][state] is not None:
+        stateMachine[topic][state](topic,msg)
 
 loraBroker = MQTTBroker('localhost', 1883)
 loraBroker.addHandler(TOPIC_LORA2GW_CARD_DET,  state_machine_entrance)
