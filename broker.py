@@ -14,7 +14,6 @@ class MQTTBroker:
 
     def __onMqttMessage(self, client, userdata, msg):
         try:
-            print('topic:%s msg:%s' % (msg.topic, msg.payload))
             self.handlers[msg.topic](msg.topic, msg.payload)
         except Exception,e:
             print Exception,":",e
@@ -23,6 +22,7 @@ class MQTTBroker:
         print('Connected to MQTT broker(%s) with error code:%s' % (self.ip, str(rc)))
 
     def pubMessage(self, topic, msg):
+        print('publish topic:%s msg:%s' % (topic, msg))
         self.client.publish(topic, msg)
 
     def addHandler(self, topic, callback):

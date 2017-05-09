@@ -36,9 +36,16 @@ class Server:
         self.broker.addHandler(TOPIC_GW2SVR_GW_SYNC_RESP, self.dump_gw_msg)
         self.broker.addHandler(TOPIC_GW2SVR_MAC_ADD_RESP, self.dump_gw_msg)
         self.broker.addHandler(TOPIC_GW2SVR_MAC_DEL_RESP, self.dump_gw_msg)
-        self.broker.addHandler(TOPIC_GW2SVR_CARD_DETECT, self.dump_gw_msg)
+        self.broker.addHandler(TOPIC_GW2SVR_CARD_DETECT, self.card_detect_resp)
         self.broker.addHandler(TOPIC_GW2SVR_CARD_ACV, self.dump_gw_msg)
         self.broker.loopStart()
+    def card_detect_resp(self, topic, payload):
+        print('Get msg from gateway: ' + payload)
+        topic = TOPIC_SVR2GW_CARD_DETECT_RESP
+	msg = json.loads(payload)
+	card_id = msg['card_id']
+	out = {"gw_id":1, "card_id":card_id, "status":0, "err_msg":""}
+	self.broker.pubMessage(topic, json.dumps(out))
 
     def dump_gw_msg(self, topic, payload):
         print('Get msg from gateway: ' + payload)
@@ -59,6 +66,8 @@ while 1:
        svr.publish(TOPIC_SVR2GW_GW_STOP_REQ, "{\"gw_id\": 1}")
     elif char == 'sync':
        svr.publish(TOPIC_SVR2GW_GW_SYNC_REQ, "{\"gw_id\": 1}")
+    elif char == 'resp':
+       svr.publish(TOPIC_SVR2GW_CARD_DETECT_RESP, "{\"gw_id\": 1, \"card_id\":1, \"status\":0, \"err_msg\":\"\"")
     elif char == 'add':
        svr.publish(TOPIC_SVR2GW_MAC_ADD_REQ, "{\"gw_id\": 1}")
     elif char == 'del':
