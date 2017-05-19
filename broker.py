@@ -1,4 +1,5 @@
 import paho.mqtt.client as mqtt
+import time
 
 class MQTTBroker:
     def __init__(self, ip='localhost', port=1883, usr=None, passwd=None):
@@ -14,7 +15,8 @@ class MQTTBroker:
 
     def __onMqttMessage(self, client, userdata, msg):
         try:
-            print('topic:%s msg:%s' % (msg.topic, msg.payload))
+            now = time.localtime()
+            print('recv %d:%d:%d %s:%s' % (now.tm_hour, now.tm_min, now.tm_sec, msg.topic, msg.payload))
             self.handlers[msg.topic](msg.topic, msg.payload)
         except Exception,e:
             print Exception,":",e
@@ -23,7 +25,8 @@ class MQTTBroker:
         print('Connected to MQTT broker(%s) with error code:%s' % (self.ip, str(rc)))
 
     def pubMessage(self, topic, msg):
-        self.client.publish(topic, msg)
+        #print('publish topic:%s msg:%s' % (topic, msg))
+        self.client.publish(topic, msg, qos=1)
 
     def addHandler(self, topic, callback):
         self.handlers.setdefault(topic, callback)
