@@ -40,6 +40,13 @@ class Server:
         self.broker.addHandler(TOPIC_GW2SVR_CARD_DETECT, self.card_detect_resp)
         self.broker.addHandler(TOPIC_GW2SVR_CARD_ACV, self.dump_gw_msg)
         self.broker.loopStart()
+    def card_detect_resp(self, topic, payload):
+        print('Get msg from gateway: ' + payload)
+        topic = TOPIC_SVR2GW_CARD_DETECT_RESP
+	msg = json.loads(payload)
+	card_id = msg['card_id']
+	out = {"gw_id":1, "card_id":card_id, "status":0, "err_msg":""}
+	self.broker.pubMessage(topic, json.dumps(out))
 
 	self.f = open('card-history.txt', 'w')
 

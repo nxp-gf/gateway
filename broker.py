@@ -15,8 +15,11 @@ class MQTTBroker:
 
     def __onMqttMessage(self, client, userdata, msg):
         try:
+<<<<<<< HEAD
             now = time.localtime()
             print('recv %d:%d:%d %s:%s' % (now.tm_hour, now.tm_min, now.tm_sec, msg.topic, msg.payload))
+=======
+>>>>>>> 717840a30f8f29ee932ffec442a6a09b5ecf8f44
             self.handlers[msg.topic](msg.topic, msg.payload)
         except Exception,e:
             print Exception,":",e
@@ -25,8 +28,13 @@ class MQTTBroker:
         print('Connected to MQTT broker(%s) with error code:%s' % (self.ip, str(rc)))
 
     def pubMessage(self, topic, msg):
+<<<<<<< HEAD
         #print('publish topic:%s msg:%s' % (topic, msg))
         self.client.publish(topic, msg, qos=1)
+=======
+        print('publish topic:%s msg:%s' % (topic, msg))
+        self.client.publish(topic, msg)
+>>>>>>> 717840a30f8f29ee932ffec442a6a09b5ecf8f44
 
     def addHandler(self, topic, callback):
         self.handlers.setdefault(topic, callback)

@@ -37,7 +37,6 @@ TOPIC_GW2LORA_CMD_WORK       = "tgt/lora/evt/cmd_work"
 TOPIC_GW2LORA_CMD_STOP       = "tgt/lora/evt/cmd_stop"
 TOPIC_GW2LORA_CMD_SYNC       = "tgt/lora/evt/cmd_sync"
 TOPIC_GW2LORA_DETECT_RESP    = "tgt/lora/evt/card_detect_resp_working_mode"
-
 TOPIC_LORA2GW_CHGPWR_RESP    = "tgt/gw/evt/cmd_change_power_resp"
 TOPIC_LORA2GW_WORK_RESP      = "tgt/gw/evt/cmd_work_resp"
 TOPIC_LORA2GW_STOP_RESP      = "tgt/gw/evt/cmd_stop_resp"
@@ -84,6 +83,7 @@ gwErrmsg = ""
 def svr2gw_reg_resp(topic, msg):
     global state
     state = STATESTOP
+    print("state",state)
     heartBeatTimer = threading.Timer(10, gateway_heartbeat_req, (0,))
     heartBeatTimer.start()
 
@@ -226,12 +226,11 @@ def gw2svr_card_detect(topic, payload):
     out = {'gw_id':gwId, 'card_id':msg['card_id'], 'RSSI':msg['RSSI'], 'SNR':msg['SNR']}
     svrBroker.pubMessage(rettopic, json.dumps(out))
 
-
 stateMachine = {TOPIC_SVR2GW_GW_REG_RESP     :[svr2gw_reg_resp, None, None, None],
                 TOPIC_SVR2GW_GW_WORK_REQ     :[None, gw2lora_cmd_req, gw2lora_cmd_req, gw2lora_cmd_req],
                 TOPIC_SVR2GW_GW_STOP_REQ     :[None, gw2lora_cmd_req, gw2lora_cmd_req, gw2lora_cmd_req],
                 TOPIC_SVR2GW_GW_SYNC_REQ     :[None, gw2lora_cmd_req, gw2lora_cmd_req, gw2lora_cmd_req],
-		TOPIC_SVR2GW_GW_CHGPWR       :[None, gw2lora_cmd_req, gw2lora_cmd_req, gw2lora_cmd_req],
+                TOPIC_SVR2GW_GW_CHGPWR       :[None, gw2lora_cmd_req, gw2lora_cmd_req, gw2lora_cmd_req],
                 TOPIC_SVR2GW_MAC_ADD_REQ     :[None, None, None, gw2svr_add_mac_resp],
                 TOPIC_SVR2GW_MAC_DEL_REQ     :[None, None, None, gw2svr_del_mac_resp],
                 TOPIC_SVR2GW_CARD_DETECT_RESP:[None, None, None, gw2lora_card_detect_resp],
@@ -239,7 +238,7 @@ stateMachine = {TOPIC_SVR2GW_GW_REG_RESP     :[svr2gw_reg_resp, None, None, None
                 TOPIC_LORA2GW_WORK_RESP      :[None, gw2svr_work_resp, gw2svr_work_resp, gw2svr_work_resp],
                 TOPIC_LORA2GW_STOP_RESP      :[None, gw2svr_stop_resp, gw2svr_stop_resp, gw2svr_stop_resp],
                 TOPIC_LORA2GW_SYNC_RESP      :[None, gw2svr_sync_resp, gw2svr_sync_resp, gw2svr_sync_resp],
-		TOPIC_LORA2GW_CHGPWR_RESP    :[None, gw2svr_chgpwr_resp, gw2svr_chgpwr_resp, gw2svr_chgpwr_resp],
+                TOPIC_LORA2GW_CHGPWR_RESP    :[None, gw2svr_chgpwr_resp, gw2svr_chgpwr_resp, gw2svr_chgpwr_resp],
                 TOPIC_LORA2GW_CARD_DET       :[None, gw2svr_card_detect, gw2svr_card_detect, gw2svr_card_detect],
                 TOPIC_LORA2GW_CARD_ACV       :[None, gw2svr_card_detect, gw2svr_card_detect, gw2svr_card_detect],
 		}
