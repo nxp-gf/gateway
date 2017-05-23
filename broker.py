@@ -4,10 +4,10 @@ import time
 class MQTTBroker:
     def __init__(self, ip='localhost', port=1883, usr=None, pwd=None, id=''):
         self.handlers = {}
-	if id != '':
+        if id != '':
             self.client = mqtt.Client(id, clean_session=False)
-	else:
-	    self.client = mqtt.Client()
+        else:
+            self.client = mqtt.Client()
         self.client.on_connect = self.__onMqttConnect
         self.client.on_message = self.__onMqttMessage
         self.client.on_disconnect = self.__onMqttDisConnect
@@ -16,7 +16,7 @@ class MQTTBroker:
         self.client.connect(ip, port, 60)
         self.ip = ip
         self.port = port
-	self.__connected = False
+        self.__connected = False
 
     def __del__(self):
         self.client.disconnect()
@@ -31,17 +31,17 @@ class MQTTBroker:
 
     def __onMqttConnect(self, client, userdata, flags, rc):
         print('Connected to MQTT broker(%s) with error code:%s' % (self.ip, str(rc)))
-	if rc == 0:
-	    self.__connected = True
+        if rc == 0:
+            self.__connected = True
 
     def __onMqttDisConnect(self, client, userdata, rc):
         print('DisConnected to MQTT broker(%s) with error code:%s' % (self.ip, str(rc)))
-	if rc == 0:
-	    self.__connected = False
+        if rc == 0:
+            self.__connected = False
 
     def waitConnect(self):
         while self.__connected == False:
-	    time.sleep(0.1)
+            time.sleep(0.1)
 
     def pubMessage(self, topic, msg):
        # print('publish topic:%s msg:%s' % (topic, msg))
