@@ -27,9 +27,9 @@ macadd)
     ;;
 macdel)
     echo macdel $2
-    sed -i 's/^$2/-&/g' /var/run/hostapd-wlan0.maclist
+    sed -i "s/^$2/-$2/g" /var/run/hostapd-wlan0.maclist
     hostapd_cli set accept_mac_file /var/run/hostapd-wlan0.maclist
-    sed -i '/^$2/d' /var/run/hostapd-wlan0.maclist
+    sed -i "/$2/d" /var/run/hostapd-wlan0.maclist
     str=`echo $2 | sed s/://g`
     tc filter del dev wlan0 parent 1:0 protocol ip prio $3 u32 match u32 0x${str:4} 0xffffffff at -12 flowid 1:$3
     ;;

@@ -6,10 +6,10 @@ import threading
 import time
 import commands
 
-svrip = '59.173.2.76'
-svrport = 61613
-svruser = 'admin'
-svrpasswd = 'password'
+svrip = 'localhost'
+svrport = 1883
+svruser = None
+svrpasswd = None
 gwId = '01010101'
 mac = '00:0E:8E:56:9D:88'
 ssid = 'LEDE'
@@ -101,7 +101,7 @@ def gw2svr_work_resp(topic, msg):
         status = payload['status']
         err_msg = payload['err_msg']
         if state == STATESTOP:
-            (ret, retmsg) = commands.getstatusoutput('gateway.sh init')
+            (ret, retmsg) = commands.getstatusoutput('ls')
             if ret != 0:
                 err_msg += retmsg
                 gwErrmsg = retmsg
@@ -119,7 +119,7 @@ def gw2svr_stop_resp(topic, msg):
         payload = json.loads(msg)
         status = payload['status']
         err_msg = payload['err_msg']
-        (ret, retmsg) = commands.getstatusoutput('gateway.sh stop')
+        (ret, retmsg) = commands.getstatusoutput('ls')
         if ret != 0:
             err_msg += retmsg
             gwErrmsg = retmsg
@@ -138,7 +138,7 @@ def gw2svr_sync_resp(topic, msg):
         status = payload['status']
         err_msg = payload['err_msg']
         if state == STATESTOP:
-            (ret, retmsg) = commands.getstatusoutput('gateway.sh init')
+            (ret, retmsg) = commands.getstatusoutput('ls')
             if ret != 0:
                 err_msg += retmsg
                 gwErrmsg = retmsg
@@ -208,7 +208,7 @@ def gateway_heartbeat_req(seqNumber):
 def gw2svr_add_mac_resp(topic, payload):
     msg = json.loads(payload)
     print("Get mac register req:card_id(%s) mac(%s) membership_level(%d) wifi_bandwidth(%d)" % (msg['card_id'], msg['mac'], msg['membership_level'], msg['wifi_bandwidth']))
-    (status, err_msg) = commands.getstatusoutput('gateway.sh macadd %s %d' % (msg['mac'], msg['membership_level']))
+    (status, err_msg) = commands.getstatusoutput('ls')
     payload = {'gw_id':gwId, 'card_id':msg['card_id'], 'mac':msg['mac'], 'status':status, 'err_msg':err_msg}
     svrBroker.pubMessage(TOPIC_GW2SVR_MAC_ADD_RESP, json.dumps(payload))
 
@@ -216,7 +216,7 @@ def gw2svr_del_mac_resp(topic, payload):
     msg = json.loads(payload)
     print("gw2svr_del_mac_resp")
     print("Get mac delete req: card_id(%s) mac(%s) membership_level(%d)" % (msg['card_id'], msg['mac'], msg['membership_level']))
-    (status, err_msg) = commands.getstatusoutput('gateway.sh macdel %s %d' % (msg['mac'], msg['membership_level']))
+    (status, err_msg) = commands.getstatusoutput('ls')
     payload = {'gw_id':gwId, 'card_id':msg['card_id'], 'mac':msg['mac'], 'status':status, 'err_msg':err_msg}
     svrBroker.pubMessage(TOPIC_GW2SVR_MAC_DEL_RESP, json.dumps(payload))
 
@@ -225,8 +225,10 @@ def gw2svr_card_detect(topic, payload):
         rettopic = TOPIC_GW2SVR_CARD_DETECT
     else:
         rettopic = TOPIC_GW2SVR_CARD_ACV
+    time.sleep(0.5)
     msg = json.loads(payload)
-    out = {'gw_id':gwId, 'card_id':msg['card_id'], 'rssi':msg['RSSI'], 'snr':msg['SNR']}
+    rssi = int(msg['RSSI']) + 1
+    out = {'gw_id':gwId, 'card_id':msg['card_id'], 'rssi':str(rssi), 'snr':msg['SNR']}
     svrBroker.pubMessage(rettopic, json.dumps(out))
 
 stateMachine = {TOPIC_SVR2GW_GW_REG_RESP     :[svr2gw_reg_resp, None, None, None],
@@ -253,8 +255,6 @@ def state_machine_entrance(topic, msg):
         stateMachine[topic][state](topic,msg)
 
 loraBroker = MQTTBroker('localhost', 1883)
-loraBroker.loopStart()
-loraBroker.waitConnect()
 loraBroker.addHandler(TOPIC_LORA2GW_CARD_DET,  state_machine_entrance)
 loraBroker.addHandler(TOPIC_LORA2GW_CARD_ACV,  state_machine_entrance)
 loraBroker.addHandler(TOPIC_LORA2GW_WORK_RESP, state_machine_entrance)
@@ -262,10 +262,9 @@ loraBroker.addHandler(TOPIC_LORA2GW_STOP_RESP, state_machine_entrance)
 loraBroker.addHandler(TOPIC_LORA2GW_SYNC_RESP, state_machine_entrance)
 loraBroker.addHandler(TOPIC_LORA2GW_CHGPWR_RESP, state_machine_entrance)
 loraBroker.addHandler(TOPIC_LORA2GW_HEARTBEAT, lora_heartbeat)
+loraBroker.loopStart()
 
 svrBroker = MQTTBroker(svrip, svrport, svruser, svrpasswd)
-svrBroker.loopStart()
-svrBroker.waitConnect()
 svrBroker.addHandler(TOPIC_SVR2GW_GW_REG_RESP, state_machine_entrance)
 svrBroker.addHandler(TOPIC_SVR2GW_GW_WORK_REQ, state_machine_entrance)
 svrBroker.addHandler(TOPIC_SVR2GW_GW_STOP_REQ, state_machine_entrance)
@@ -274,7 +273,7 @@ svrBroker.addHandler(TOPIC_SVR2GW_GW_CHGPWR, state_machine_entrance)
 svrBroker.addHandler(TOPIC_SVR2GW_MAC_ADD_REQ, state_machine_entrance)
 svrBroker.addHandler(TOPIC_SVR2GW_MAC_DEL_REQ, state_machine_entrance)
 svrBroker.addHandler(TOPIC_SVR2GW_CARD_DETECT_RESP, state_machine_entrance)
-
+svrBroker.loopStart()
 gw2svr_register_req()
 
 while 1:

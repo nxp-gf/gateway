@@ -3,7 +3,7 @@ from broker import MQTTBroker
 import threading
 import commands
 
-gwId = 1
+gwId = '01010101'
 
 TOPIC_GW2SVR_HEARTBEAT       = "tgt/server/evt/gw_heartbeat"
 TOPIC_GW2SVR_GW_REG_REQ      = "tgt/server/evt/gw_reg_req"
@@ -16,14 +16,14 @@ TOPIC_GW2SVR_CARD_DETECT     = "tgt/server/evt/card_detect_req"
 TOPIC_GW2SVR_CARD_ACV        = "tgt/server/evt/card_detect_req_sync_mode"
 TOPIC_GW2SVR_GW_CHGPWR_RESP  = "tgt/server/evt/gw_chgpwr_resp"
 
-TOPIC_SVR2GW_GW_CHGPWR       = "tgt/"+str(gwId)+"/evt/gw_chgpwr_reg"
-TOPIC_SVR2GW_GW_REG_RESP     = "tgt/"+str(gwId)+"/evt/gw_reg_resp"
-TOPIC_SVR2GW_GW_WORK_REQ     = "tgt/"+str(gwId)+"/evt/gw_work_req"
-TOPIC_SVR2GW_GW_STOP_REQ     = "tgt/"+str(gwId)+"/evt/gw_stop_req"
-TOPIC_SVR2GW_GW_SYNC_REQ     = "tgt/"+str(gwId)+"/evt/gw_sync_req"
-TOPIC_SVR2GW_MAC_ADD_REQ     = "tgt/"+str(gwId)+"/evt/mac_add_req"
-TOPIC_SVR2GW_MAC_DEL_REQ     = "tgt/"+str(gwId)+"/evt/mac_delete_req"
-TOPIC_SVR2GW_CARD_DETECT_RESP= "tgt/"+str(gwId)+"/evt/card_detect_resp"
+TOPIC_SVR2GW_GW_CHGPWR       = "tgt/"+gwId+"/evt/gw_chgpwr_reg"
+TOPIC_SVR2GW_GW_REG_RESP     = "tgt/"+gwId+"/evt/gw_reg_resp"
+TOPIC_SVR2GW_GW_WORK_REQ     = "tgt/"+gwId+"/evt/gw_work_req"
+TOPIC_SVR2GW_GW_STOP_REQ     = "tgt/"+gwId+"/evt/gw_stop_req"
+TOPIC_SVR2GW_GW_SYNC_REQ     = "tgt/"+gwId+"/evt/gw_sync_req"
+TOPIC_SVR2GW_MAC_ADD_REQ     = "tgt/"+gwId+"/evt/mac_add_req"
+TOPIC_SVR2GW_MAC_DEL_REQ     = "tgt/"+gwId+"/evt/mac_delete_req"
+TOPIC_SVR2GW_CARD_DETECT_RESP= "tgt/"+gwId+"/evt/card_detect_resp"
 
 
 
@@ -40,6 +40,10 @@ class Server:
         self.broker.addHandler(TOPIC_GW2SVR_CARD_DETECT, self.card_detect_resp)
         self.broker.addHandler(TOPIC_GW2SVR_CARD_ACV, self.dump_gw_msg)
         self.broker.loopStart()
+
+	self.f = open('card-history.txt', 'aw')
+
+
     def card_detect_resp(self, topic, payload):
         print('Get msg from gateway: ' + payload)
         topic = TOPIC_SVR2GW_CARD_DETECT_RESP
@@ -47,8 +51,6 @@ class Server:
 	card_id = msg['card_id']
 	out = {"gw_id":1, "card_id":card_id, "status":0, "err_msg":""}
 	self.broker.pubMessage(topic, json.dumps(out))
-
-	self.f = open('card-history.txt', 'w')
 
     def card_detect_resp(self, topic, payload):
         print('Get msg from gateway: ' + payload)
