@@ -44,7 +44,7 @@ class MQTTBroker:
             time.sleep(0.1)
 
     def pubMessage(self, topic, msg):
-       # print('publish topic:%s msg:%s' % (topic, msg))
+        print('publish topic:%s msg:%s' % (topic, msg))
         self.client.publish(topic, msg, qos=2)
 
     def addHandler(self, topic, callback):

@@ -1,15 +1,28 @@
-
-
 import json
 from broker import MQTTBroker
 import threading
-import time
+import time,sys,argparse
 import commands
 
-svrip = '59.173.2.76'
-svrport = 61613
-svruser = 'admin'
-svrpasswd = 'password'
+
+parser = argparse.ArgumentParser(description='The Banking IoT Gateway demo')
+
+parser.add_argument("--server", choices=('local', 'remote'), default='remote',
+                    help="Use the local server or the remote server.")
+args = parser.parse_args()
+
+
+if (args.server == 'local'):
+    svrip = 'localhost'
+    svrport = 1883
+    svruser = None
+    svrpasswd = None
+else:
+    svrip = '59.173.2.76'
+    svrport = 61613
+    svruser = 'admin'
+    svrpasswd = 'password'
+
 gwId = '01010101'
 mac = '00:0E:8E:56:9D:88'
 ssid = 'LEDE'
@@ -278,6 +291,4 @@ svrBroker.addHandler(TOPIC_SVR2GW_CARD_DETECT_RESP, state_machine_entrance)
 gw2svr_register_req()
 
 while 1:
-    instr = raw_input("input cmd:")
-    if instr == 'q':
-        break
+    time.sleep(1)
