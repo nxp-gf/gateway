@@ -3,6 +3,7 @@ from broker import MQTTBroker
 import threading
 import time,sys,argparse
 import commands
+from switch import PowerSwitchController
 
 
 parser = argparse.ArgumentParser(description='The Banking IoT Gateway demo')
@@ -23,9 +24,9 @@ else:
     svruser = 'admin'
     svrpasswd = 'password'
 
-gwId = '01010101'
-mac = '00:0E:8E:56:9D:88'
-ssid = 'LEDE'
+gwId = '12121212'
+mac = 'BC:30:7D:08:AA:3B'
+ssid = 'NXP-Banking-GW'
 password = ''
 
 TOPIC_GW2SVR_HEARTBEAT       = "tgt/server/evt/gw_heartbeat"
@@ -69,7 +70,7 @@ STATEWORK=3
 
 wifiCapbility = 1
 DLNACapbility = 1
-heartbeatTime = 30
+heartbeatTime = 5
 wifiBandwidth = 1000
 
 
@@ -84,6 +85,7 @@ global longitude
 global gwErrmsg
 global powerA
 global powerB
+global powersw
 
 #state = STATESTOP
 state = STATEINIT
@@ -95,6 +97,7 @@ longitude = 0
 powerA = 0
 powerB = 0
 gwErrmsg = ""
+powersw = PowerSwitchController()
 
 def svr2gw_reg_resp(topic, msg):
     global state
@@ -224,6 +227,7 @@ def gw2svr_add_mac_resp(topic, payload):
     (status, err_msg) = commands.getstatusoutput('gateway.sh macadd %s %d' % (msg['mac'], msg['membership_level']))
     payload = {'gw_id':gwId, 'card_id':msg['card_id'], 'mac':msg['mac'], 'status':status, 'err_msg':err_msg}
     svrBroker.pubMessage(TOPIC_GW2SVR_MAC_ADD_RESP, json.dumps(payload))
+    powersw.switch('on')
 
 def gw2svr_del_mac_resp(topic, payload):
     msg = json.loads(payload)
@@ -232,6 +236,7 @@ def gw2svr_del_mac_resp(topic, payload):
     (status, err_msg) = commands.getstatusoutput('gateway.sh macdel %s %d' % (msg['mac'], msg['membership_level']))
     payload = {'gw_id':gwId, 'card_id':msg['card_id'], 'mac':msg['mac'], 'status':status, 'err_msg':err_msg}
     svrBroker.pubMessage(TOPIC_GW2SVR_MAC_DEL_RESP, json.dumps(payload))
+    powersw.switch('off')
 
 def gw2svr_card_detect(topic, payload):
     if topic == TOPIC_LORA2GW_CARD_DET:
@@ -261,7 +266,6 @@ stateMachine = {TOPIC_SVR2GW_GW_REG_RESP     :[svr2gw_reg_resp, None, None, None
 
 def state_machine_entrance(topic, msg):
     global state
-    print("state------",state)
     if stateMachine[topic][state] is not None:
         stateMachine[topic][state](topic,msg)
 
