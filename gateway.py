@@ -13,7 +13,8 @@ parser.add_argument("--server", choices=('local', 'remote'), default='remote',
 args = parser.parse_args()
 
 
-if (args.server == 'local'):
+#if (args.server == 'local'):
+if (1):
     svrip = 'localhost'
     svrport = 1883
     svruser = None
@@ -24,7 +25,9 @@ else:
     svruser = 'admin'
     svrpasswd = 'password'
 
-gwId = '12121212'
+
+#gwId = '12121212'
+gwId = '010101'
 mac = 'BC:30:7D:08:AA:3B'
 ssid = 'NXP-Banking-GW'
 password = ''
@@ -86,6 +89,7 @@ global gwErrmsg
 global powerA
 global powerB
 global powersw
+global lastCardDetect
 
 #state = STATESTOP
 state = STATEINIT
@@ -98,6 +102,8 @@ powerA = 0
 powerB = 0
 gwErrmsg = ""
 powersw = PowerSwitchController()
+lastCardDetect = 0
+#lastCardDetect = time.time()
 
 def svr2gw_reg_resp(topic, msg):
     global state
@@ -112,6 +118,7 @@ def gw2svr_register_req():
 def gw2svr_work_resp(topic, msg):
     global state
     global gwErrmsg
+    lastCardDetect = 0
     if topic == TOPIC_LORA2GW_WORK_RESP:
         payload = json.loads(msg)
         status = payload['status']
@@ -210,6 +217,10 @@ def lora_heartbeat(topic, payload):
     latitude = msg['latitude']
     powerA = msg['powerA']
     powerB = msg['powerB']
+    now = time.time()
+    print now, lastCardDetect
+    if (lastCardDetect != 0 and now - lastCardDetect >= 10):
+        powersw.switch('off')
 
 def gateway_heartbeat_req(seqNumber):
     seqNumber += 1
@@ -241,6 +252,9 @@ def gw2svr_del_mac_resp(topic, payload):
 def gw2svr_card_detect(topic, payload):
     if topic == TOPIC_LORA2GW_CARD_DET:
         rettopic = TOPIC_GW2SVR_CARD_DETECT
+        powersw.switch('on')
+	global lastCardDetect
+	lastCardDetect = time.time()
     else:
         rettopic = TOPIC_GW2SVR_CARD_ACV
     msg = json.loads(payload)
@@ -293,6 +307,6 @@ svrBroker.addHandler(TOPIC_SVR2GW_MAC_DEL_REQ, state_machine_entrance)
 svrBroker.addHandler(TOPIC_SVR2GW_CARD_DETECT_RESP, state_machine_entrance)
 
 gw2svr_register_req()
-
+svr2gw_reg_resp("", "")
 while 1:
     time.sleep(1)
